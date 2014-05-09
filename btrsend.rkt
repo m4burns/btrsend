@@ -10,9 +10,7 @@ exec /home/m4burns/bin/racket -u "$0" "$@"
          srfi/19
          srfi/26
          racket/format
-         racket/async-channel
-         rackunit
-         rackunit/text-ui)
+         racket/async-channel)
 
 (define/contract (make-gpg-compress-pipe recipient)
   (-> string? (list/c output-port? input-port? procedure?))
@@ -297,6 +295,17 @@ exec /home/m4burns/bin/racket -u "$0" "$@"
      (create-encrypted create)]
     [else (void)]))
 
+(define (aws-log->port level port)
+  (define recv (make-log-receiver (current-logger) level 'aws))
+  (thread
+    (thunk
+      (let loop ()
+        (match (sync recv)
+          [`#(,lev ,msg ,_ ,_)
+            (fprintf port "~a: ~a~n" lev msg)
+            (flush-output port)])
+        (loop)))))
+
 (module+ main
   (define (main . args)
     (unless (= (length args) 1)
@@ -310,6 +319,7 @@ exec /home/m4burns/bin/racket -u "$0" "$@"
     (call-with-output-file ".btrsend.log"
       (lambda(log-port)
         (file-stream-buffer-mode log-port 'line)
+        (aws-log->port 'warning log-port)
         (parameterize
           ([current-input-port (input-port-append #f)]
            [current-output-port log-port]
@@ -321,6 +331,8 @@ exec /home/m4burns/bin/racket -u "$0" "$@"
   (apply main (vector->list (current-command-line-arguments))))
 
 (module+ test
+  (require rackunit
+           rackunit/text-ui)
   (define (make-test-db)
     (when (file-exists? "btrsend-test.db")
       (delete-file "btrsend-test.db"))
