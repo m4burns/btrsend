@@ -71,3 +71,9 @@ To use `btrsend.rkt` with the scripts described above:
 
 To get `btrsend.rkt` to read your AWS credentials see
 https://github.com/greghendershott/aws .
+
+## WARNING ##
+
+Backups are very cheap to create and store. Backups can be *very expensive* to
+restore. Read the Glacier pricing guide before attempting to restore. Retrieve
+files slowly to avoid getting an absurdly high bill.
