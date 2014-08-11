@@ -1,0 +1,68 @@
+#!/bin/bash
+# Config
+# Directory to contain snapshots of form $USER/$DATE
+# This script assumes that $USER's $HOME = $SNAPDIR/../$USER
+#  i.e. that $SNAPDIR is an immediate subdirectory of /home and that
+#  the user's home directory is spelled the same as the user's name.
+#  TODO: remove these assumptions
+SNAPDIR=/home/btrfs/snapshot
+
+# Users for whom snapshots should be maintained.
+SNAPUSERS=()
+
+# Snapshots older than $SNAPDAYS will be deleted.
+SNAPDAYS=60
+
+LOG="$SNAPDIR"/btrsnap.log
+
+# Wrapper used to invoke $HOME/.btrsend
+BTRSEND="$SNAPDIR"/btrsend
+
+###
+
+# Redirect stdout to log. Copy stderr to log.
+exec 6>&2
+exec 2> >(tee -a "$LOG" >&6)
+exec >> "$LOG"
+
+function die () {
+  echo "$1" >&2
+  exit 1
+}
+
+function btrsend () {
+  if [ -x ../"$1"/.btrsend ]; then
+    echo "Calling btrsend for user $1 and snapshot $2"
+    setsid "$BTRSEND" "$1" "$2" & disown
+  fi
+}
+
+curtime=$(date +%s) || die "Could not get current timestamp."
+
+function cull_snapshot () {
+  local mintime=$((curtime-SNAPDAYS*86400))
+  local snaptime=$(date -d "$(basename "$1")" +%s)
+  if [ $mintime -gt $snaptime ]; then
+    echo "Deleting old snapshot $1"
+    btrfs subvolume delete "$1"
+  fi
+}
+
+curdate=$(date +%Y-%m-%d) || die "Could not get current date."
+echo "--- btrsnap $curdate ---"
+
+# Change to the snapshot directory.
+cd "$SNAPDIR" || die "Could not chdir to snapshot directory."
+
+# Remove snapshots older than SNAPDAYS.
+while IFS= read -r -d '' snap; do
+  cull_snapshot "$snap"
+done < <(find . -xdev -mindepth 2 -maxdepth 2 -print0 -type d)
+
+# Create today's snapshot for each user.
+for user in "${SNAPUSERS[@]}"; do
+  [ -e "$user"/$curdate ] && continue
+  btrfs subvolume snapshot -r ../"$user" "$user"/$curdate \
+    || die "Could not create snapshot for ${user}."
+  btrsend "$user" $curdate
+done

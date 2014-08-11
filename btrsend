@@ -1,0 +1,23 @@
+#!/bin/bash
+
+target_euid=$(id -u -- "$1")  || exit 1
+[ "$target_euid" -gt "0" ] || exit 1
+
+exec > /dev/null
+exec 2>/dev/null
+
+coproc sudo -u "$1" -- ../"$1"/.btrsend "$2"
+
+IFS= read -r want <&${COPROC[0]}
+
+if [[ "$want" =~ ^c$ ]]; then
+  btrfs subvolume show "$1"/"$2" >/dev/null 2>&1 || exit 1
+  btrfs send "$1"/"$2" >&${COPROC[1]}
+elif [[ "$want" =~ ^i\ [0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+  parent="${want:2}"
+  btrfs subvolume show "$1"/"$2" >/dev/null 2>&1 || exit 1
+  btrfs subvolume show "$1"/"$parent" >/dev/null 2>&1 || exit 1
+  btrfs send -p "$1"/"$parent" "$1"/"$2" >&${COPROC[1]}
+else
+  exit 0
+fi
