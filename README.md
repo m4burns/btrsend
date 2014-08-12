@@ -39,8 +39,8 @@ stdin, it may be impossible to restore the Glacier archives uploaded by
 `btrsend.rkt`.
 
 `btrsend.rkt` compresses its input with `gzip -7` and encrypts asymmetrically
-with `gpg`. To tune this behaviour, search the source for
-`make-gpg-comress-pipe`.
+(not really, symmetric + asymmetrically encrypted key) with `gpg`. To tune this
+behaviour, search the source for `make-gpg-comress-pipe`.
 
 Each complete or incremental blob is compressed, encrypted, and uploaded to
 Amazon Glacier as a single archive in a streaming manner. Old archives are
