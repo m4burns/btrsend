@@ -14,7 +14,7 @@ exec /home/m4burns/bin/racket -u "$0" "$@"
 
 (define/contract (make-gpg-compress-pipe recipient)
   (-> string? (list/c output-port? input-port? procedure?))
-  (let ((ps (process (format "gzip -7 | gpg --encrypt --recipient ~a" recipient))))
+  (let ((ps (process (format "gzip -4 | gpg --encrypt --recipient ~a" recipient))))
     (thread (thunk (copy-port (fourth ps) (current-error-port))))
     (list (second ps) (first ps) (fifth ps))))
 
