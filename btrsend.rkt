@@ -221,9 +221,9 @@ exec /home/m4burns/bin/racket -u "$0" "$@"
   (define backup-tree-lifetime-days 90)
   (define backup-tree-max-height 11)
   (define backups (list-backups db))
-  (define earliest-complete-backup 
+  (define earliest-complete-backup
     (findf (lambda(x) (not (sql-null->false (hash-ref x 'parent)))) backups))
-  (define latest-complete-backup 
+  (define latest-complete-backup
     (findf (lambda(x) (not (sql-null->false (hash-ref x 'parent)))) (reverse backups)))
   (define (children-of row)
     (reverse
@@ -324,7 +324,16 @@ exec /home/m4burns/bin/racket -u "$0" "$@"
           ([current-input-port (input-port-append #f)]
            [current-output-port log-port]
            [current-error-port  log-port])
-          (btrsend (first args) stdin stdout)))
+          (btrsend (first args) stdin stdout)
+          (when (file-exists? ".btrsend-post-hook")
+            (fprintf (current-error-port) "Running .btrsend-post-hook...~n")
+            (match-define
+              (list out in pid err p)
+              (process*/ports
+                (current-output-port) #f (current-error-port)
+                ".btrsend-post-hook"))
+            (close-output-port in)
+            (p 'wait))))
       #:exists 'append)
 
     (exit 0))
